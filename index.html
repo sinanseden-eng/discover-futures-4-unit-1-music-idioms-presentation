@@ -259,6 +259,52 @@
     .card-body { padding: 20px; }
     .title-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .title-row h3 { margin: 0; font-size: 29px; line-height: 1.1; }
+    .idiom-heading { min-width: 0; flex: 1; }
+    .name-actions { display: flex; align-items: center; gap: 7px; }
+    .idiom-mask {
+      width: min(240px, 82%);
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 13px;
+      border: 1px dashed #b8b0e9;
+      border-radius: 11px;
+      color: #6a58bc;
+      background: repeating-linear-gradient(135deg, #f0edff 0 10px, #e8e3ff 10px 20px);
+      font-size: 13px;
+      font-weight: 950;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .idiom-mask::before { content: '???'; letter-spacing: .14em; }
+    .name-reveal-btn {
+      min-height: 38px;
+      border: 0;
+      border-radius: 11px;
+      padding: 0 12px;
+      color: white;
+      background: var(--purple);
+      font-size: 11px;
+      font-weight: 900;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .prediction-callout {
+      margin: 9px 0 12px;
+      padding: 9px 11px;
+      border-left: 4px solid var(--purple);
+      border-radius: 0 10px 10px 0;
+      color: #5844aa;
+      background: #f4f1ff;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .reveal-box.locked { opacity: .62; }
+    .reveal-box.locked > button { cursor: not-allowed; }
+    .association-name-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 4px; }
+    .association-name-row h2 { margin: 0; }
+    .association-name-row .idiom-mask { width: min(310px, 72%); height: 46px; font-size: 15px; }
     .speak-btn { width: 38px; height: 38px; border: 0; border-radius: 11px; color: var(--purple); background: #f0edff; cursor: pointer; }
     .meaning { min-height: 48px; margin: 9px 0 15px; color: var(--muted); line-height: 1.55; }
 
@@ -437,6 +483,7 @@
       <input id="searchInput" type="search" placeholder="Search idioms, meanings, patterns or situations…">
       <select id="statusFilter" aria-label="Progress filter"><option value="all">All progress</option><option value="new">Not associated</option><option value="associated">Associated</option><option value="mastered">Confident</option></select>
       <button class="btn soft" id="expandBtn">Expand toolkits</button>
+      <button class="btn soft" id="maskNamesBtn">Mask idiom names</button>
     </div>
     <div class="section-head"><div><h2>Idiom cards</h2><small>Build the association before revealing the model.</small></div><small id="visibleCount">5 idioms</small></div>
     <div class="idiom-grid" id="idiomGrid"></div>
@@ -606,6 +653,7 @@ const els = {
   search: document.getElementById('searchInput'),
   filter: document.getElementById('statusFilter'),
   expand: document.getElementById('expandBtn'),
+  maskNames: document.getElementById('maskNamesBtn'),
   visibleCount: document.getElementById('visibleCount'),
   associatedCount: document.getElementById('associatedCount'),
   masteredCount: document.getElementById('masteredCount'),
@@ -645,6 +693,7 @@ function loadState() {
 }
 
 let state = loadState();
+const revealedNames = new Set();
 let expandAll = false;
 let associationIndex = 0;
 let recallIndex = 0;
@@ -716,6 +765,7 @@ function addAssociation(id, rawValue) {
 
 function cardHtml(item) {
   const links = state.associations[item.id] || [];
+  const nameRevealed = revealedNames.has(item.id);
   return `<article class="idiom-card" data-id="${item.id}">
     <div class="visual ${item.visualClass}">
       <span class="category-tag">Music idiom</span>
@@ -724,7 +774,11 @@ function cardHtml(item) {
       <div class="visual-note">${escapeHtml(item.visualCue)}</div>
     </div>
     <div class="card-body">
-      <div class="title-row"><h3>${escapeHtml(item.idiom)}</h3><button class="speak-btn" data-action="speak" aria-label="Hear the idiom">🔊</button></div>
+      <div class="title-row">
+        <div class="idiom-heading">${nameRevealed ? `<h3>${escapeHtml(item.idiom)}</h3>` : '<div class="idiom-mask" aria-label="Idiom name hidden"></div>'}</div>
+        <div class="name-actions">${nameRevealed ? '<button class="speak-btn" data-action="speak" aria-label="Hear the idiom">🔊</button>' : '<button class="name-reveal-btn" data-action="reveal-name">Reveal idiom</button>'}</div>
+      </div>
+      ${nameRevealed ? '' : '<p class="prediction-callout">Pause here: invite two or three predictions before revealing the idiom.</p>'}
       <p class="meaning">${escapeHtml(item.meaning)}</p>
       <div class="bridge">
         <div class="bridge-box literal"><span class="mini-label">Literal picture</span>${escapeHtml(item.literal)}</div>
@@ -735,7 +789,7 @@ function cardHtml(item) {
         <div class="input-row"><input maxlength="55" placeholder="Person, place, event, feeling…"><button type="button" data-action="add">+</button></div>
         <div class="chips">${links.map((link, index) => `<span class="chip">${escapeHtml(link)} <button data-action="remove" data-index="${index}" aria-label="Remove">×</button></span>`).join('')}</div>
       </div>
-      <div class="reveal-box"><button data-action="reveal">Reveal examples and dialogue after associating</button><div class="reveal-content">
+      <div class="reveal-box ${nameRevealed ? '' : 'locked'}"><button data-action="reveal" ${nameRevealed ? '' : 'disabled'}>${nameRevealed ? 'Reveal examples and dialogue after associating' : 'Reveal the idiom name first'}</button><div class="reveal-content">
         <div class="provided-example"><span class="mini-label">Provided example</span>${escapeHtml(item.providedExample)}</div>
         <p><b>B2 model:</b> ${escapeHtml(item.model)}</p>
         ${dialogueHtml(item.dialogue)}
@@ -776,21 +830,32 @@ function renderAssociationDeck() {
   associationIndex = normaliseIndex(associationIndex, idioms.length);
   const item = idioms[associationIndex];
   const links = state.associations[item.id] || [];
+  const nameRevealed = revealedNames.has(item.id);
   els.associationCard.innerHTML = `<div class="study-card">
     <div class="study-visual ${item.visualClass}"><div><div class="visual-emoji">${item.emoji}</div><p>${escapeHtml(item.visualCue)}</p></div></div>
-    <div class="study-body"><span class="tiny">Picture → Bridge → Personal link → Say</span><h2>${escapeHtml(item.idiom)}</h2><p>${escapeHtml(item.meaning)}</p>
+    <div class="study-body"><span class="tiny">Picture → Predict → Reveal → Connect → Say</span>
+      <div class="association-name-row">${nameRevealed ? `<h2>${escapeHtml(item.idiom)}</h2>` : '<div class="idiom-mask" aria-label="Idiom name hidden"></div>'}${nameRevealed ? '<button class="speak-btn" id="associationSpeak" aria-label="Hear the idiom">🔊</button>' : '<button class="name-reveal-btn" id="associationNameReveal">Reveal idiom</button>'}</div>
+      ${nameRevealed ? '' : '<p class="prediction-callout">Ask for two or three predictions from the visual before revealing the answer.</p>'}
+      <p>${escapeHtml(item.meaning)}</p>
       <div class="bridge"><div class="bridge-box literal"><span class="mini-label">Literal</span>${escapeHtml(item.literal)}</div><div class="bridge-box meaning"><span class="mini-label">Bridge</span>${escapeHtml(item.bridge)}</div></div>
       ${tokens(item.memoryPrompts.map(value => `Think of: ${value}`))}
       <div class="input-row" style="margin-top:13px"><input id="associationDeckInput" maxlength="55" placeholder="Add your strongest personal link…"><button id="associationDeckAdd" type="button">+</button></div>
       <div class="chips">${links.map(link => `<span class="chip">${escapeHtml(link)}</span>`).join('')}</div>
-      <p><b>Say aloud:</b> “${escapeHtml(item.idiom)} makes me think of ___ because ___.”</p>
-      <details class="toolkit"><summary>Then notice the full chunk</summary><div class="tool-grid"><div class="tool" style="grid-column:1/-1">${tokens(item.patterns)}<p style="margin-top:10px">${escapeHtml(item.model)}</p></div></div></details>
+      <p><b>Say aloud:</b> “${nameRevealed ? escapeHtml(item.idiom) : '________'} makes me think of ___ because ___.”</p>
+      <details class="toolkit" ${nameRevealed ? '' : 'inert'}><summary>${nameRevealed ? 'Then notice the full chunk' : 'Reveal the idiom name to open the language toolkit'}</summary><div class="tool-grid"><div class="tool" style="grid-column:1/-1">${tokens(item.patterns)}<p style="margin-top:10px">${escapeHtml(item.model)}</p></div></div></details>
     </div></div>`;
   els.associationCounter.textContent = `${associationIndex + 1} of ${idioms.length}`;
   const addButton = document.getElementById('associationDeckAdd');
   const input = document.getElementById('associationDeckInput');
   addButton.addEventListener('click', () => { if (addAssociation(item.id, input.value)) input.value = ''; });
   input.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); addButton.click(); } });
+  document.getElementById('associationNameReveal')?.addEventListener('click', () => {
+    revealedNames.add(item.id);
+    renderLearn();
+    renderAssociationDeck();
+    toast('Idiom revealed.');
+  });
+  document.getElementById('associationSpeak')?.addEventListener('click', () => speak(item.idiom));
 }
 
 function scenarioOptions(correctIdiom) {
@@ -857,6 +922,12 @@ els.navButtons.forEach(button => button.addEventListener('click', () => setView(
 els.search.addEventListener('input', renderLearn);
 els.filter.addEventListener('change', renderLearn);
 els.expand.addEventListener('click', () => { expandAll = !expandAll; els.expand.textContent = expandAll ? 'Collapse toolkits' : 'Expand toolkits'; renderLearn(); });
+els.maskNames.addEventListener('click', () => {
+  revealedNames.clear();
+  renderLearn();
+  renderAssociationDeck();
+  toast('All idiom names are masked for a new prediction round.');
+});
 els.print.addEventListener('click', () => window.print());
 els.reset.addEventListener('click', () => {
   if (!confirm('Clear all saved associations, writing and confidence marks?')) return;
@@ -873,6 +944,12 @@ els.grid.addEventListener('click', event => {
   const item = idioms.find(value => value.id === card.dataset.id);
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (!action || !item) return;
+  if (action === 'reveal-name') {
+    revealedNames.add(item.id);
+    renderLearn();
+    renderAssociationDeck();
+    toast('Idiom revealed.');
+  }
   if (action === 'speak') speak(item.idiom);
   if (action === 'master') { state.mastered[item.id] = !state.mastered[item.id]; saveState(); renderLearn(); }
   if (action === 'reveal') event.target.closest('.reveal-box').classList.toggle('open');
